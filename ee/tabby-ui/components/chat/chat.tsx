@@ -6,6 +6,7 @@ import type {
   NavigateOpts,
   SymbolInfo
 } from 'tabby-chat-panel'
+import { useQuery } from 'urql'
 
 import { ERROR_CODE_NOT_FOUND } from '@/lib/constants'
 import {
@@ -21,6 +22,7 @@ import { useLatest } from '@/lib/hooks/use-latest'
 import { useThreadRun } from '@/lib/hooks/use-thread-run'
 import { filename2prism } from '@/lib/language-utils'
 import { useChatStore } from '@/lib/stores/chat-store'
+import { resolveGitUrlQuery } from '@/lib/tabby/query'
 import { ExtendedCombinedError } from '@/lib/types'
 import {
   AssistantMessage,
@@ -75,6 +77,7 @@ export interface ChatRef {
   addRelevantContext: (context: Context) => void
   focus: () => void
   updateActiveSelection: (context: Context | null) => void
+  updateGitUrl: (gitUrl: string | undefined) => void
 }
 
 interface ChatProps extends React.ComponentProps<'div'> {
@@ -101,7 +104,6 @@ interface ChatProps extends React.ComponentProps<'div'> {
   ) => Promise<SymbolInfo | undefined>
   chatInputRef: RefObject<HTMLTextAreaElement>
   supportsOnApplyInEditorV2: boolean
-  indexedRepository: ResolveGitUrlQuery['resolveGitUrl']
 }
 
 function ChatRenderer(
@@ -123,8 +125,7 @@ function ChatRenderer(
     onApplyInEditor,
     onLookupSymbol,
     chatInputRef,
-    supportsOnApplyInEditorV2,
-    indexedRepository
+    supportsOnApplyInEditorV2
   }: ChatProps,
   ref: React.ForwardedRef<ChatRef>
 ) {
@@ -137,10 +138,23 @@ function ChatRenderer(
   const [activeSelection, setActiveSelection] = React.useState<Context | null>(
     null
   )
+  const [gitUrl, setGitUrl] = React.useState<string | undefined>()
   const enableActiveSelection = useChatStore(
     state => state.enableActiveSelection
   )
+  const enableIndexedRepository = useChatStore(
+    state => state.enableIndexedRepository
+  )
+
   const chatPanelRef = React.useRef<ChatPanelRef>(null)
+
+  const [{ data }] = useQuery({
+    query: resolveGitUrlQuery,
+    variables: {
+      gitUrl: gitUrl as string
+    },
+    pause: !gitUrl
+  })
 
   const {
     sendUserMessage,
@@ -506,8 +520,18 @@ function ChatRenderer(
     300
   )
 
+  const debouncedUpdateGitUrl = useDebounceCallback(
+    (url: string | undefined) => {
+      setGitUrl(url)
+    },
+    300
+  )
+
   const updateActiveSelection = (ctx: Context | null) => {
     debouncedUpdateActiveSelection.run(ctx)
+  }
+  const updateGitUrl = (gitUrl: string | undefined) => {
+    debouncedUpdateGitUrl.run(gitUrl)
   }
 
   React.useImperativeHandle(
@@ -519,7 +543,8 @@ function ChatRenderer(
         isLoading,
         addRelevantContext,
         focus: () => chatPanelRef.current?.focus(),
-        updateActiveSelection
+        updateActiveSelection,
+        updateGitUrl
       }
     },
     []
@@ -555,7 +580,7 @@ function ChatRenderer(
         chatInputRef,
         activeSelection,
         supportsOnApplyInEditorV2,
-        indexedRepository
+        indexedRepository: gitUrl ? data?.resolveGitUrl : undefined
       }}
     >
       <div className="flex justify-center overflow-x-hidden">

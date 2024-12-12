@@ -22,6 +22,8 @@ import {
   IconCheck,
   IconEye,
   IconEyeOff,
+  IconFileSearch2,
+  IconFileText,
   IconFolderGit,
   IconRefresh,
   IconRemove,
@@ -237,7 +239,7 @@ function ChatPanelRenderer(
                       </Badge>
                     </motion.div>
                   </TooltipTrigger>
-                  <TooltipContent className="text-md space-y-2">
+                  <TooltipContent className="text-md space-y-2" align="start">
                     <span className="font-semibold text-muted-foreground">
                       Indexed repository of current workspace:
                     </span>
@@ -265,6 +267,7 @@ function ChatPanelRenderer(
                       }
                     )}
                   >
+                    <IconFileText />
                     <ContextLabel
                       context={activeSelection}
                       className="flex-1 truncate"
