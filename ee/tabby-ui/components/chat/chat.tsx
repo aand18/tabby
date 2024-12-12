@@ -13,6 +13,7 @@ import {
   CreateMessageInput,
   InputMaybe,
   MessageAttachmentCodeInput,
+  ResolveGitUrlQuery,
   ThreadRunOptionsInput
 } from '@/lib/gql/generates/graphql'
 import { useDebounceCallback } from '@/lib/hooks/use-debounce'
@@ -35,10 +36,6 @@ import { ChatPanel, ChatPanelRef } from './chat-panel'
 import { ChatScrollAnchor } from './chat-scroll-anchor'
 import { EmptyScreen } from './empty-screen'
 import { QuestionAnswerList } from './question-answer'
-import { createRequest } from '@urql/core'
-import { client } from '@/lib/tabby/gql'
-import { ResolveGitUrlQuery } from '@/lib/gql/generates/graphql'
-import { resolveGitUrlQuery, repositoryListQuery } from '@/lib/tabby/query'
 
 type ChatContextValue = {
   threadId: string | undefined
@@ -64,6 +61,7 @@ type ChatContextValue = {
   removeRelevantContext: (index: number) => void
   chatInputRef: RefObject<HTMLTextAreaElement>
   supportsOnApplyInEditorV2: boolean
+  indexedRepository: ResolveGitUrlQuery['resolveGitUrl']
 }
 
 export const ChatContext = React.createContext<ChatContextValue>(
@@ -103,19 +101,7 @@ interface ChatProps extends React.ComponentProps<'div'> {
   ) => Promise<SymbolInfo | undefined>
   chatInputRef: RefObject<HTMLTextAreaElement>
   supportsOnApplyInEditorV2: boolean
-}
-
-async function resolveGitUrl(gitUrl: string): Promise<
-  ResolveGitUrlQuery['resolveGitUrl']
-> {
-  const query = client.createRequestOperation(
-    'query',
-    createRequest(resolveGitUrlQuery, { gitUrl })
-  )
-
-  return client
-    .executeQuery(query)
-    .then(data => console.log('data', data)) as any
+  indexedRepository: ResolveGitUrlQuery['resolveGitUrl']
 }
 
 function ChatRenderer(
@@ -137,7 +123,8 @@ function ChatRenderer(
     onApplyInEditor,
     onLookupSymbol,
     chatInputRef,
-    supportsOnApplyInEditorV2
+    supportsOnApplyInEditorV2,
+    indexedRepository
   }: ChatProps,
   ref: React.ForwardedRef<ChatRef>
 ) {
@@ -514,9 +501,6 @@ function ChatRenderer(
 
   const debouncedUpdateActiveSelection = useDebounceCallback(
     (ctx: Context | null) => {
-      console.log('ctx', ctx);
-      // if (ctx?.git_url) resolveGitUrl(ctx.git_url)
-
       setActiveSelection(ctx)
     },
     300
@@ -570,7 +554,8 @@ function ChatRenderer(
         removeRelevantContext,
         chatInputRef,
         activeSelection,
-        supportsOnApplyInEditorV2
+        supportsOnApplyInEditorV2,
+        indexedRepository
       }}
     >
       <div className="flex justify-center overflow-x-hidden">
