@@ -22,7 +22,6 @@ import {
   IconCheck,
   IconEye,
   IconEyeOff,
-  IconFileSearch2,
   IconFileText,
   IconFolderGit,
   IconRefresh,
