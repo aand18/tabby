@@ -11,6 +11,7 @@ import {
   ProgressLocation,
   commands,
   LocationLink,
+  workspace
 } from "vscode";
 import type { ServerApi, ChatMessage, Context, NavigateOpts, OnLoadedParams, SymbolInfo } from "tabby-chat-panel";
 import { TABBY_CHAT_PANEL_API_VERSION } from "tabby-chat-panel";
@@ -565,29 +566,73 @@ export class WebviewHelper {
                 this.logger.info(`File not found: ${filepath}`);
                 continue;
               }
-              const content = document.getText();
-              let pos = 0;
-              while ((pos = content.indexOf(keyword, pos)) !== -1) {
-                const position = document.positionAt(pos);
-                const locations = await commands.executeCommand<LocationLink[]>(
-                  "vscode.executeDefinitionProvider",
-                  document.uri,
-                  position,
-                );
-                if (locations && locations.length > 0) {
-                  const location = locations[0];
-                  if (location) {
-                    return {
-                      sourceFile: filepath,
-                      sourceLine: position.line + 1,
-                      sourceCol: position.character,
-                      targetFile: location.targetUri.toString(true),
-                      targetLine: location.targetRange.start.line + 1,
-                      targetCol: location.targetRange.start.character,
-                    };
+              
+              const notebookDocument = workspace.notebookDocuments.find(notebook => 
+                notebook.getCells().some(cell => cell.document.uri.toString() === filepath)
+              );
+      
+              if (notebookDocument) {
+                for (const cell of notebookDocument.getCells()) {
+                  if (cell.document.uri.toString() !== filepath) continue;
+
+                  const content = cell.document.getText();
+                  this.logger.info('notebookDocument symbol content', content);
+                  let pos = 0;
+                  while ((pos = content.indexOf(keyword, pos)) !== -1) {
+                    const position = cell.document.positionAt(pos);
+                    this.logger.info('notebookDocument symbol position', keyword, position);
+                    const locations = await commands.executeCommand<LocationLink[]>(
+                      "vscode.executeDefinitionProvider",
+                      notebookDocument.uri,
+                      position,
+                    )
+                    this.logger.info('getlocations', locations.length);
+                    if (locations && locations.length > 0) {
+                      const location = locations[0];
+                      if (location) {
+                        return {
+                          sourceFile: filepath,
+                          sourceLine: position.line + 1,
+                          sourceCol: position.character,
+                          targetFile: location.targetUri.toString(true),
+                          targetLine: location.targetRange.start.line + 1,
+                          targetCol: location.targetRange.start.character,
+                        };
+                      }
+                    }
+                    pos += keyword.length;
                   }
                 }
-                pos += keyword.length;
+              } else {
+                const content = document.getText();
+                // FIXME remove logs
+                this.logger.info('textDocument symbol keyword', keyword);
+                this.logger.info('textDocument symbol content', content);
+                let pos = 0;
+                while ((pos = content.indexOf(keyword, pos)) !== -1) {
+
+                  const position = document.positionAt(pos);
+                  const locations = await commands.executeCommand<LocationLink[]>(
+                    "vscode.executeDefinitionProvider",
+                    document.uri,
+                    position,
+                  );
+                  this.logger.info('locations', locations?.length || 0)
+                  if (locations && locations.length > 0) {
+                    const location = locations[0];
+                    if (location) {
+                      return {
+                        sourceFile: filepath,
+                        sourceLine: position.line + 1,
+                        sourceCol: position.character,
+                        targetFile: location.targetUri.toString(true),
+                        targetLine: location.targetRange.start.line + 1,
+                        targetCol: location.targetRange.start.character,
+                      };
+                    }
+                  }
+                  pos += keyword.length;
+                }
               }
             }
           } catch (error) {

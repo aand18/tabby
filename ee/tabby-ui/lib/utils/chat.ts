@@ -122,12 +122,16 @@ function parseVscodeNotebookCellURI(uri: string) {
     fragment.substring(0, idx).replace(_padRegexp, ''),
     _radix
   )
+  const scheme = Buffer.from(fragment.substring(idx + 1), 'base64').toString(
+    'utf-8'
+  )
 
   if (isNaN(handle)) {
     return undefined
   }
   return {
-    handle
+    handle,
+    scheme
   }
 }
 
